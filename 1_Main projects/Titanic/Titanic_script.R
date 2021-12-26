@@ -142,9 +142,17 @@ test$Survived <- ifelse(test$pred > 0.4, 1, 0)
 
 table(test$Sex, test$Survived)
 
+#Visualisations
+train$ide <- "Train"
+test$ide <- "Test"
 
+full <- rbind(train, test)
 
+ggplot(full, aes(Age, fill = factor(Survived))) + geom_histogram() + 
+   facet_wrap(~ ide)
 
+ggplot(full, aes(Sex, fill = factor(Survived))) + stat_count() +
+   facet_wrap(~ ide)
 
 
 
