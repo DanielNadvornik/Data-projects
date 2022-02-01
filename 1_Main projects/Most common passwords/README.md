@@ -1,2 +1,1 @@
-For the Kaggle dataset (https://www.kaggle.com/shivamb/10000-most-common-passwords) I did EDA, data visualisation and some basic feature engineering
-to create 4 plots with some interesting facts about most common passwords. 
+For the Kaggle dataset (https://www.kaggle.com/shivamb/10000-most-common-passwords) I did EDA, data viz and approx. string matching to create 4 plots with some interesting facts about most common passwords. 
