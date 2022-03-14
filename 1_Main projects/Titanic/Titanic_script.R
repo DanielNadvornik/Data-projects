@@ -4,6 +4,8 @@ library(Hmisc)
 library(Amelia)
 library(rpart)
 library(pROC)
+library(tidymodels)
+library(easystats)
 
 getwd()
 
@@ -91,12 +93,7 @@ train$pred <- ifelse(train$pred > 0.4, 1, 0)
 #2
 mean(train$Survived == train$pred)
 
-ROC <- roc(train$Survived, train$pred)
-
-plot(ROC, col = "green")
-
-auc(ROC)
-
+roc1 <- plot.roc(roc(train$Survived, train$pred, plot = T))
 
 ############## test
 
@@ -154,6 +151,84 @@ ggplot(full, aes(Age, fill = factor(Survived))) + geom_histogram() +
 ggplot(full, aes(Sex, fill = factor(Survived))) + stat_count() +
    facet_wrap(~ ide)
 
+
+
+#3 - ML approach - boosted_tree algorithm with hyperparameter tuning
+
+useless_f <- c("pred", "ide", "PassengerId", "Name", "Ticket", "Cabin", "Parch")
+train_ml <- train %>% select(-useless_f)
+
+factors <- c("Survived", "Pclass", "Sex", "SibSp", "Embarked", "title")
+train_ml[factors] <- lapply(train_ml[factors], factor)
+
+tr_spec <- boost_tree(trees = 20,
+   learn_rate = tune(),
+   tree_depth = tune()) %>%
+   set_mode("classification") %>%
+   set_engine("xgboost")
+
+grid_tune <- grid_regular(learn_rate(),
+             tree_depth(), 
+             levels = 3)
+
+folds <- vfold_cv(train_ml, 4)
+
+
+#Calculation ~ 20sec
+set.seed(123)
+results <- tune_grid(tr_spec, 
+                     Survived ~., 
+                     resamples = folds,
+                     grid = grid_tune,
+                     metrics = metric_set(roc_auc))
+
+
+autoplot(results)
+
+#Final model 
+best_params <- select_best(results)
+final_spec <- finalize_model(tr_spec, best_params)
+final_model <- final_spec %>% fit(Survived ~ ., train_ml)
+
+train_ml <- predict(final_model, train_ml, type = "class") %>% bind_cols(train_ml)
+train_ml <- as.data.frame(train_ml)
+
+#Evaluation of the ML model
+mean(train_ml$Survived == train_ml$.pred_class)
+roc2 <- roc(response = train_ml$Survived, predictor= factor(train_ml$.pred_class, 
+                                                        ordered = TRUE), plot = T)
+
+
+#predicting the survival
+useless_test_f <- c("pred", "ide", "Survived", "PassengerId", "Name", "Ticket", "Cabin", "Parch")
+test_ml <- test %>% select(-useless_test_f)
+
+factors_test <- c("Pclass", "Sex", "SibSp", "Embarked", "title")
+test_ml[factors_test] <- lapply(test_ml[factors_test], factor)
+
+test_ml <- predict(final_model, test_ml) %>% 
+   bind_cols(test_ml)
+
+train_ml$ide <- "Train"
+test_ml$ide <- "Test"
+
+train_ml <- train_ml %>% select(-Survived)
+
+full2 <- rbind(train_ml, test_ml)
+
+ggplot(full2, aes(Age, fill = factor(.pred_class))) + geom_histogram() + 
+   facet_wrap(~ ide)
+
+ggplot(full2, aes(Sex, fill = factor(.pred_class))) + stat_count() +
+   facet_wrap(~ ide)
+
+
+
+#Comparison
+AUC_logit_mod <- as.vector(roc1$auc)
+AUC_boostedTree_mod <- as.vector(roc2$auc)
+
+AUC_boostedTree_mod > AUC_logit_mod
 
 
 
