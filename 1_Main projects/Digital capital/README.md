@@ -1,1 +1,1 @@
-Unfinished script for the dataset on mine bachelor thesis. 
+Unfinished script for the dataset created for my bachelor thesis.
